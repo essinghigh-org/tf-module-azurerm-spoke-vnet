@@ -1,0 +1,56 @@
+name: release
+
+on:
+  pull_request:
+    types: [closed]
+
+permissions:
+  contents: write
+  pull-requests: read
+
+concurrency:
+  group: release-${{ github.event.pull_request.base.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    if: github.event.pull_request.merged == true && github.event.pull_request.base.ref == github.event.repository.default_branch
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-depth: 0
+      - name: Determine version bump from labels
+        id: bump
+        run: |
+          bump=""
+          for label in ${{ join(github.event.pull_request.labels.*.name, ' ') }}; do
+            case "$label" in
+              major) bump="major" ;;
+              minor) [ "$bump" != "major" ] && bump="minor" ;;
+              patch) [ "$bump" != "major" ] && [ "$bump" != "minor" ] && bump="patch" ;;
+            esac
+          done
+          echo "bump=$bump" >> "$GITHUB_OUTPUT"
+      - name: Tag and release
+        if: steps.bump.outputs.bump != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          bump="${{ steps.bump.outputs.bump }}"
+          latest="$(git tag --sort=-v:refname | grep -E '^v?[0-9]+\.[0-9]+\.[0-9]+$' | head -n 1 || true)"
+          if [ -z "$latest" ]; then major=0; minor=0; patch=0; else
+            latest="${latest#v}"
+            IFS=. read -r major minor patch <<< "$latest"
+          fi
+          case "$bump" in
+            major) major=$((major+1)); minor=0; patch=0 ;;
+            minor) minor=$((minor+1)); patch=0 ;;
+            patch) patch=$((patch+1)) ;;
+          esac
+          version="$major.$minor.$patch"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "v$version" -m "Release v$version"
+          git push origin "v$version"
+          gh release create "v$version" --generate-notes
