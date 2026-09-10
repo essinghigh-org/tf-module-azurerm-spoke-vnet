@@ -31,4 +31,12 @@ output "additional_peerings" {
 output "route_tables" {
   description = "Route tables created by this module."
   value       = merge(azurerm_route_table.nva, azurerm_route_table.custom)
+
+  precondition {
+    condition = length(setintersection(
+      toset(keys(azurerm_route_table.nva)),
+      toset(keys(azurerm_route_table.custom))
+    )) == 0
+    error_message = "NVA and custom route-table keys must be disjoint so the route_tables output cannot omit an entry."
+  }
 }

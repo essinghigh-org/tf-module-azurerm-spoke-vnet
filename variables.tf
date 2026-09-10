@@ -131,6 +131,26 @@ variable "subnets" {
     ])
     error_message = "Each subnet NSG profile must be one of: none, deny_internet_inbound."
   }
+
+  validation {
+    condition = alltrue(flatten([
+      for subnet in values(var.subnets) : [
+        for route in values(subnet.additional_nva_routes) :
+        lower(route.next_hop_type) != "virtualappliance" || route.next_hop_in_ip_address != null || var.nva_ip != null
+      ]
+    ]))
+    error_message = "VirtualAppliance additional_nva_routes entries must define next_hop_in_ip_address or use var.nva_ip."
+  }
+
+  validation {
+    condition = alltrue(flatten([
+      for subnet in values(var.subnets) : [
+        for route in values(try(subnet.route_table.routes, {})) :
+        lower(route.next_hop_type) != "virtualappliance" || route.next_hop_in_ip_address != null
+      ]
+    ]))
+    error_message = "VirtualAppliance subnet route_table.routes entries must define next_hop_in_ip_address."
+  }
 }
 
 variable "security_vnet" {
@@ -177,7 +197,33 @@ variable "route_tables" {
   default = {}
 
   validation {
-    condition     = alltrue([for route_table in values(var.route_tables) : contains(keys(var.subnets), route_table.subnet_key)])
-    error_message = "Each route_tables subnet_key must reference a subnet key in var.subnets."
+    condition = (
+      alltrue([
+        for route_table in values(var.route_tables) : contains(keys(var.subnets), route_table.subnet_key)
+      ]) &&
+      length(distinct([
+        for route_table in values(var.route_tables) : route_table.subnet_key
+      ])) == length(var.route_tables) &&
+      alltrue([
+        for route_table in values(var.route_tables) : !contains([
+          for subnet_key, subnet in var.subnets : subnet_key
+          if try(subnet.route_table, null) != null || coalesce(
+            subnet.create_dedicated_route_table,
+            var.nva_ip != null || length(subnet.additional_nva_routes) > 0
+          )
+        ], route_table.subnet_key)
+      ])
+    )
+    error_message = "Each route_tables subnet_key must reference a unique subnet without another route-table association mechanism."
+  }
+
+  validation {
+    condition = alltrue([
+      for route_table in values(var.route_tables) : alltrue([
+        for route in values(route_table.routes) :
+        lower(route.next_hop_type) != "virtualappliance" || route.next_hop_in_ip_address != null
+      ])
+    ])
+    error_message = "VirtualAppliance route_tables entries must define next_hop_in_ip_address."
   }
 }

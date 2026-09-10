@@ -5,7 +5,7 @@ locals {
   }
 
   subnet_route_tables = {
-    for subnet_key, subnet in local.routed_subnets : lower(trimsuffix(subnet_key, "Subnet")) => {
+    for subnet_key, subnet in local.routed_subnets : subnet_key => {
       name                          = coalesce(try(subnet.route_table.name, null), "${trimsuffix(var.vnet_name, "-vnet")}-${lower(trimsuffix(subnet_key, "Subnet"))}-rt")
       subnet_key                    = subnet_key
       bgp_route_propagation_enabled = try(subnet.route_table.bgp_route_propagation_enabled, false)
@@ -38,7 +38,7 @@ locals {
 
   custom_routes = merge({}, [
     for route_table_key, route_table in var.route_tables : {
-      for route_key, route in route_table.routes : "${route_table_key}.${route_key}" => merge(route, {
+      for route_key, route in route_table.routes : jsonencode([route_table_key, route_key]) => merge(route, {
         route_table_key = route_table_key
         route_key       = route_key
       })
@@ -96,7 +96,7 @@ resource "azurerm_virtual_network_peering" "spoke_to_security" {
   virtual_network_name         = azurerm_virtual_network.this.name
   remote_virtual_network_id    = var.security_vnet.id
   allow_forwarded_traffic      = try(var.security_vnet.allow_forwarded_traffic, true)
-  allow_gateway_transit        = try(var.security_vnet.allow_gateway_transit, false)
+  allow_gateway_transit        = false
   allow_virtual_network_access = try(var.security_vnet.allow_virtual_network_access, true)
   use_remote_gateways          = try(var.security_vnet.use_remote_gateways, false)
 }
@@ -113,7 +113,7 @@ resource "azurerm_virtual_network_peering" "security_to_spoke" {
   allow_gateway_transit        = try(var.security_vnet.allow_gateway_transit, false)
   allow_forwarded_traffic      = try(var.security_vnet.allow_forwarded_traffic, true)
   allow_virtual_network_access = try(var.security_vnet.allow_virtual_network_access, true)
-  use_remote_gateways          = try(var.security_vnet.use_remote_gateways, false)
+  use_remote_gateways          = false
 }
 
 resource "azurerm_virtual_network_peering" "additional" {
