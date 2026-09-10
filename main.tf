@@ -104,7 +104,7 @@ resource "azurerm_virtual_network_peering" "spoke_to_security" {
 resource "azurerm_virtual_network_peering" "security_to_spoke" {
   count = var.security_vnet == null || !try(var.security_vnet.create_remote_peering, true) ? 0 : 1
 
-  provider = azurerm.transit
+  provider = azurerm.spoke
 
   name                         = "${var.security_vnet.name}-to-${var.vnet_name}"
   resource_group_name          = var.security_vnet.resource_group_name
