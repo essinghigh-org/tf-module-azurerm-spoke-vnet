@@ -4,7 +4,7 @@ config {
 
 plugin "terraform" {
   enabled = true
-  preset  = "recommended"
+  preset  = "all"
 }
 
 plugin "azurerm" {
