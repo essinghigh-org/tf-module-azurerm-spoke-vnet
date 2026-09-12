@@ -12,6 +12,10 @@ jobs:
       - uses: opentofu/setup-opentofu@v1
       - run: tofu fmt -check -recursive
       - run: tofu init -backend=false -input=false
+
+        env:
+          TF_TOKEN_terraform_essinghigh_dev: ${{ secrets.TFE_REGISTRY_TOKEN }}
+
       - run: tofu validate
       - uses: terraform-linters/setup-tflint@v6
       - run: tflint --init
