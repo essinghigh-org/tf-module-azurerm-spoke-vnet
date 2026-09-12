@@ -99,9 +99,9 @@ variable "subnets" {
     }))
 
     nsg = optional(object({
-      enabled = optional(bool, true)
-      name    = optional(string)
-      profile = optional(string, "none")
+      enabled  = optional(bool, true)
+      name     = optional(string)
+      profiles = optional(list(string), [])
       rules = optional(map(object({
         priority                                   = number
         direction                                  = string
@@ -121,16 +121,6 @@ variable "subnets" {
       })), {})
     }))
   }))
-
-  validation {
-    condition = alltrue([
-      for subnet in values(var.subnets) : contains(
-        ["none", "deny_internet_inbound"],
-        try(subnet.nsg.profile, "none")
-      )
-    ])
-    error_message = "Each subnet NSG profile must be one of: none, deny_internet_inbound."
-  }
 
   validation {
     condition = alltrue(flatten([

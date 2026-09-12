@@ -10,7 +10,7 @@ output "subnets" {
 
 output "network_security_groups" {
   description = "Network security groups created for configured subnets."
-  value       = azurerm_network_security_group.subnet
+  value       = { for key, nsg in module.subnet_nsg : key => nsg }
 }
 
 output "spoke_to_security_peering" {
